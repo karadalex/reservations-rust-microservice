@@ -4,12 +4,13 @@ extern crate rocket;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::State;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 struct User {
-    id: i64,
+    #[serde(default)]
+    id: Option<i64>,
     username: String,
     email: String,
 }
@@ -41,6 +42,33 @@ async fn get_user_by_id(
     }
 }
 
+#[post("/users", data = "<new_user>")]
+async fn create_user(
+    new_user: Json<User>,
+    db: &State<SqlitePool>,
+) -> Result<Json<User>, Status> {
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        INSERT INTO users (username, email)
+        VALUES (?, ?)
+        RETURNING id, username, email
+        "#,
+    )
+    .bind(&new_user.username)
+    .bind(&new_user.email)
+    .fetch_one(db.inner())
+    .await
+    .map_err(|e| {
+        error!(
+            "db error in create_user(username={}, email={}): {}",
+            new_user.username, new_user.email, e
+        );
+        Status::InternalServerError
+    })?;
+
+    Ok(Json(user))
+}
+
 #[launch]
 async fn rocket() -> _ {
     // For local dev this could be e.g. "sqlite://app.db"
@@ -59,5 +87,5 @@ async fn rocket() -> _ {
 
     rocket::build()
         .manage(pool)
-        .mount("/", routes![get_user_by_id])
+        .mount("/", routes![get_user_by_id, create_user])
 }
