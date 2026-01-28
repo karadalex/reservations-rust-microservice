@@ -7,6 +7,7 @@ use sqlx::{FromRow, SqlitePool};
 use rocket::{get, post, error};
 
 use crate::utils::*;
+use crate::error_response;
 
 pub fn routes() -> Vec<rocket::Route> {
     routes![get_user_by_id, create_user]
@@ -38,22 +39,12 @@ async fn get_user_by_id(
     .await
     .map_err(|e| {
         error!("db error in get_user_by_id({}): {}", id, e);
-        (
-			Status::InternalServerError,
-			Json(ErrorBody {
-				message: "failed to fetch user".to_string(),
-			}),
-		)
+		error_response!(Status::InternalServerError, "failed to fetch user")
     })?;
 
     match user {
         Some(u) => Ok(Json(u)),
-        None => Err((
-			Status::NotFound,
-			Json(ErrorBody {
-				message: "user not found".to_string(),
-			}),
-		)),
+        None => Err(error_response!(Status::NotFound, "user not found")),
     }
 }
 
@@ -78,12 +69,7 @@ async fn create_user(
             "db error in create_user(username={}, email={}): {}",
             new_user.username, new_user.email, e
         );
-        (
-			Status::InternalServerError,
-			Json(ErrorBody {
-				message: "failed to create user".to_string(),
-			})
-		)
+		error_response!(Status::InternalServerError, "failed to create user")
     })?;
 
     Ok(Json(user))

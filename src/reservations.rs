@@ -8,6 +8,7 @@ use rocket::{get, post, error};
 
 
 use crate::utils::*;
+use crate::error_response;
 
 pub fn routes() -> Vec<rocket::Route> {
     routes![get_reservation_by_id, create_reservation]
@@ -94,22 +95,12 @@ async fn get_reservation_by_id(
     .await
     .map_err(|e| {
         error!("db error in get_reservation_by_id({}): {}", id, e);
-        (
-			Status::InternalServerError,
-			Json(ErrorBody {
-				message: "failed to fetch reservation".to_string(),
-			}),
-		)
+		error_response!(Status::InternalServerError, "failed to fetch reservation")
     })?;
 
     match reservation {
         Some(r) => Ok(Json(r)),
-        None => Err((
-			Status::NotFound,
-			Json(ErrorBody {
-				message: "reservation not found".to_string(),
-			}),
-		)),
+        None => Err(error_response!(Status::NotFound, "reservation not found")),
     }
 }
 
@@ -123,20 +114,10 @@ async fn create_reservation(
         .there_is_overlap_in_db(db)
         .await
 		.map_err(|_| {
-            (
-                Status::InternalServerError,
-                Json(ErrorBody {
-                    message: "failed to check reservation overlap".to_string(),
-                }),
-            )
+			error_response!(Status::InternalServerError, "failed to check reservation overlap")
         })?;
     if do_overlap {
-        return Err((
-            Status::Conflict,
-            Json(ErrorBody {
-                message: "reservation times overlap with an existing reservation".to_string(),
-            }),
-        ));
+        return Err(error_response!(Status::Conflict, "reservation time overlaps with an existing reservation"));
     }
 
     let reservation = sqlx::query_as::<_, Reservation>(
@@ -156,12 +137,7 @@ async fn create_reservation(
             "db error in create_reservation(user_id={}, start_datetime={}, end_datetime={}): {}",
             new_reservation.user_id, new_reservation.start_datetime, new_reservation.end_datetime, e
         );
-        (
-            Status::InternalServerError,
-            Json(ErrorBody {
-                message: "failed to create reservation".to_string(),
-            }),
-        )
+		error_response!(Status::InternalServerError, "failed to create reservation")
     })?;
 
     Ok(Json(reservation))

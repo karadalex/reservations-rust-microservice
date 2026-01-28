@@ -8,3 +8,15 @@ pub struct ErrorBody {
 }
 
 pub type ApiResult<T> = Result<Json<T>, (Status, Json<ErrorBody>)>;
+
+#[macro_export]
+macro_rules! error_response {
+    ($status:expr, $msg:expr) => {
+        (
+            $status,
+            Json($crate::utils::ErrorBody {
+                message: $msg.to_string(),
+            }),
+        )
+    };
+}
