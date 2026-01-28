@@ -3,6 +3,7 @@ extern crate rocket;
 
 mod users;
 mod reservations;
+mod utils;
 use sqlx::sqlite::SqlitePoolOptions;
 
 

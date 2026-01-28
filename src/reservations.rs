@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use rocket::{get, post, error};
 
+
+use crate::utils::*;
+
 pub fn routes() -> Vec<rocket::Route> {
     routes![get_reservation_by_id, create_reservation]
 }
@@ -104,10 +107,26 @@ async fn get_reservation_by_id(
 async fn create_reservation(
     new_reservation: Json<Reservation>,
     db: &State<SqlitePool>,
-) -> Result<Json<Reservation>, Status> {
-    let do_overlap = new_reservation.there_is_overlap_in_db(db).await?;
+) -> ApiResult<Reservation> {
+
+    let do_overlap = new_reservation
+        .there_is_overlap_in_db(db)
+        .await
+		.map_err(|_| {
+            (
+                Status::InternalServerError,
+                Json(ErrorBody {
+                    message: "failed to check reservation overlap".to_string(),
+                }),
+            )
+        })?;
     if do_overlap {
-        return Err(Status::Conflict);
+        return Err((
+            Status::Conflict,
+            Json(ErrorBody {
+                message: "reservation times overlap with an existing reservation".to_string(),
+            }),
+        ));
     }
 
     let reservation = sqlx::query_as::<_, Reservation>(
@@ -127,7 +146,12 @@ async fn create_reservation(
             "db error in create_reservation(user_id={}, start_datetime={}, end_datetime={}): {}",
             new_reservation.user_id, new_reservation.start_datetime, new_reservation.end_datetime, e
         );
-        Status::InternalServerError
+        (
+            Status::InternalServerError,
+            Json(ErrorBody {
+                message: "failed to create reservation".to_string(),
+            }),
+        )
     })?;
 
     Ok(Json(reservation))
