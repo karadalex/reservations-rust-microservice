@@ -2,6 +2,15 @@
 name = "reservations-rust-microservice"
 version = "0.1.0"
 edition = "2021"
+default-run = "reservations-rust-microservice"
 
 [dependencies]
-rocket = "0.5.1"
+rocket = {version = "0.5.1", features = ["json"] }
+serde = "1.0.228"
+serde_json = "1.0.149"
+sqlx = "0.7.0"
+tokio = "1.49.0"
+
+[dependencies.rocket_db_pools]
+version = "0.2.0"
+features = ["sqlx_sqlite"]
