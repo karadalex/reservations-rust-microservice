@@ -19,6 +19,59 @@ struct Reservation {
     end_datetime: String,
 }
 
+impl Reservation {
+    fn new(user_id: i64, start_datetime: String, end_datetime: String) -> Self {
+		Reservation {
+			id: None,
+			user_id,
+			start_datetime,
+			end_datetime,
+		}
+	}
+
+    async fn there_is_overlap_in_db(&self, db: &State<SqlitePool>) -> Result<bool, Status> {
+        let there_is_overlap: bool = sqlx::query_scalar::<_, bool>(
+        r#"
+            SELECT EXISTS(
+                SELECT 1 FROM reservations
+                WHERE user_id = ?
+                AND (
+                    (start_datetime < ? AND end_datetime > ?)
+                    OR (start_datetime < ? AND end_datetime < ?)
+                    OR (start_datetime > ? AND end_datetime > ?)
+                )
+            );
+            "#,
+        )
+        .bind(self.user_id)
+        .bind(&self.end_datetime)
+        .bind(&self.start_datetime)
+        .bind(&self.start_datetime)
+        .bind(&self.end_datetime)
+        .bind(&self.start_datetime)
+        .bind(&self.end_datetime)
+        .fetch_one(db.inner())
+        .await
+        .map_err(|e| {
+            error!(
+                "db error in there_is_overlap_in_db(user_id={}): {}",
+                self.user_id, e
+            );
+            Status::InternalServerError
+        })?;
+
+        Ok(there_is_overlap)
+    }
+
+	fn there_is_overlap(&self, other: Reservation) -> bool {
+		(self.start_datetime < other.end_datetime &&
+		self.end_datetime > other.start_datetime) || 
+		(self.start_datetime < other.start_datetime &&
+		self.end_datetime < other.end_datetime) || 
+		(self.start_datetime > other.start_datetime &&
+		self.end_datetime > other.end_datetime)
+	}
+}
 
 #[get("/reservations/<id>")]
 async fn get_reservation_by_id(
@@ -52,6 +105,11 @@ async fn create_reservation(
     new_reservation: Json<Reservation>,
     db: &State<SqlitePool>,
 ) -> Result<Json<Reservation>, Status> {
+    let do_overlap = new_reservation.there_is_overlap_in_db(db).await?;
+    if do_overlap {
+        return Err(Status::Conflict);
+    }
+
     let reservation = sqlx::query_as::<_, Reservation>(
         r#"
         INSERT INTO reservations (user_id, start_datetime, end_datetime)
