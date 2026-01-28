@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod users;
+mod reservations;
 use sqlx::sqlite::SqlitePoolOptions;
 
 
@@ -24,4 +25,5 @@ async fn rocket() -> _ {
     rocket::build()
         .manage(pool)
         .mount("/", users::routes())
+        .mount("/", reservations::routes())
 }
