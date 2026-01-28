@@ -23,5 +23,19 @@ async fn main() -> Result<(), sqlx::Error> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            start_datetime TEXT NOT NULL,
+            end_datetime TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
     Ok(())
 }
