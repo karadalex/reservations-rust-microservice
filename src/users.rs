@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use rocket::{get, post, error};
 
+use crate::utils::*;
+
 pub fn routes() -> Vec<rocket::Route> {
     routes![get_user_by_id, create_user]
 }
@@ -22,7 +24,7 @@ struct User {
 async fn get_user_by_id(
     id: i64,
     db: &State<SqlitePool>,
-) -> Result<Json<User>, Status> {
+) -> ApiResult<User>  {
     // Use bind parameters to avoid SQL injection
     let user = sqlx::query_as::<_, User>(
         r#"
@@ -36,12 +38,22 @@ async fn get_user_by_id(
     .await
     .map_err(|e| {
         error!("db error in get_user_by_id({}): {}", id, e);
-        Status::InternalServerError
+        (
+			Status::InternalServerError,
+			Json(ErrorBody {
+				message: "failed to fetch user".to_string(),
+			}),
+		)
     })?;
 
     match user {
         Some(u) => Ok(Json(u)),
-        None => Err(Status::NotFound),
+        None => Err((
+			Status::NotFound,
+			Json(ErrorBody {
+				message: "user not found".to_string(),
+			}),
+		)),
     }
 }
 
@@ -49,7 +61,7 @@ async fn get_user_by_id(
 async fn create_user(
     new_user: Json<User>,
     db: &State<SqlitePool>,
-) -> Result<Json<User>, Status> {
+) -> ApiResult<User> {
     let user = sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (username, email)
@@ -66,7 +78,12 @@ async fn create_user(
             "db error in create_user(username={}, email={}): {}",
             new_user.username, new_user.email, e
         );
-        Status::InternalServerError
+        (
+			Status::InternalServerError,
+			Json(ErrorBody {
+				message: "failed to create user".to_string(),
+			})
+		)
     })?;
 
     Ok(Json(user))

@@ -80,7 +80,7 @@ impl Reservation {
 async fn get_reservation_by_id(
     id: i64,
     db: &State<SqlitePool>,
-) -> Result<Json<Reservation>, Status> {
+) -> ApiResult<Reservation> {
     // Use bind parameters to avoid SQL injection
     let reservation = sqlx::query_as::<_, Reservation>(
         r#"
@@ -94,12 +94,22 @@ async fn get_reservation_by_id(
     .await
     .map_err(|e| {
         error!("db error in get_reservation_by_id({}): {}", id, e);
-        Status::InternalServerError
+        (
+			Status::InternalServerError,
+			Json(ErrorBody {
+				message: "failed to fetch reservation".to_string(),
+			}),
+		)
     })?;
 
     match reservation {
         Some(r) => Ok(Json(r)),
-        None => Err(Status::NotFound),
+        None => Err((
+			Status::NotFound,
+			Json(ErrorBody {
+				message: "reservation not found".to_string(),
+			}),
+		)),
     }
 }
 
