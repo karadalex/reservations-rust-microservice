@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use rocket::{get, post, error};
 
-
 use crate::utils::*;
 use crate::error_response;
+
 
 pub fn routes() -> Vec<rocket::Route> {
     routes![get_reservation_by_id, create_reservation]
@@ -66,7 +66,12 @@ impl Reservation {
 		(self.start_datetime > other.start_datetime &&
 		self.end_datetime > other.end_datetime)
 	}
+
+	fn is_valid(&self) -> bool {
+		self.start_datetime < self.end_datetime
+	}
 }
+
 
 #[get("/reservations/<id>")]
 async fn get_reservation_by_id(
@@ -110,6 +115,9 @@ async fn create_reservation(
     if do_overlap {
         return Err(error_response!(Status::Conflict, "reservation time overlaps with an existing reservation"));
     }
+	if !new_reservation.is_valid() {
+		return Err(error_response!(Status::BadRequest, "invalid reservation time range"));
+	}
 
     let reservation = sqlx::query_as::<_, Reservation>(
         r#"
