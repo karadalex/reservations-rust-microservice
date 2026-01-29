@@ -9,6 +9,8 @@ use sqlx::sqlite::SqlitePoolOptions;
 
 #[launch]
 async fn rocket() -> _ {
+    dotenvy::dotenv().ok();
+    
     // For local dev this could be e.g. "sqlite://app.db"
     // Or "sqlite::memory:" for in-memory testing.
     let database_url =

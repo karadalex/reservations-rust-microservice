@@ -77,16 +77,18 @@ impl Reservation {
 async fn get_reservation_by_id(
     id: i64,
     db: &State<SqlitePool>,
+    auth: AuthUser,
 ) -> ApiResult<Reservation> {
     // Use bind parameters to avoid SQL injection
     let reservation = sqlx::query_as::<_, Reservation>(
         r#"
         SELECT id, user_id, start_datetime, end_datetime
         FROM reservations
-        WHERE id = ?
+        WHERE id = ? AND user_id = ?
         "#,
     )
     .bind(id)
+    .bind(auth.user_id)
     .fetch_optional(db.inner())
     .await
     .map_err(|e| {
@@ -104,7 +106,11 @@ async fn get_reservation_by_id(
 async fn create_reservation(
     new_reservation: Json<Reservation>,
     db: &State<SqlitePool>,
+    auth: AuthUser,
 ) -> ApiResult<Reservation> {
+    if new_reservation.user_id != auth.user_id {
+        return Err(error_response!(Status::Forbidden, "forbidden"));
+    }
 
     let do_overlap = new_reservation
         .there_is_overlap_in_db(db)

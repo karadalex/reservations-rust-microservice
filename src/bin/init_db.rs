@@ -16,12 +16,22 @@ async fn main() -> Result<(), sqlx::Error> {
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
-            email TEXT NOT NULL
+            email TEXT NOT NULL,
+            password_hash TEXT NOT NULL
         );
         "#,
     )
     .execute(&pool)
     .await?;
+
+    let _ = sqlx::query(
+        r#"
+        ALTER TABLE users
+        ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''
+        "#,
+    )
+    .execute(&pool)
+    .await;
 
     sqlx::query(
         r#"

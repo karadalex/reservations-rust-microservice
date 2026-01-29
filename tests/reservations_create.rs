@@ -1,5 +1,6 @@
 use reservations_rust_microservice::reservations;
-use rocket::http::{ContentType, Status};
+use reservations_rust_microservice::utils::issue_jwt;
+use rocket::http::{ContentType, Header, Status};
 use rocket::local::asynchronous::Client;
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -29,6 +30,9 @@ async fn build_rocket() -> rocket::Rocket<rocket::Build> {
 
 #[rocket::async_test]
 async fn create_reservation_returns_created_row() {
+    std::env::set_var("JWT_SECRET", "test-secret");
+    let token = issue_jwt(1).expect("issue token");
+
     let client = Client::tracked(build_rocket().await)
         .await
         .expect("valid rocket instance");
@@ -36,6 +40,7 @@ async fn create_reservation_returns_created_row() {
     let response = client
         .post("/reservations")
         .header(ContentType::JSON)
+        .header(Header::new("Authorization", format!("Bearer {}", token)))
         .body(
             r#"{"user_id":1,"start_datetime":"2026-01-28T10:00:00Z","end_datetime":"2026-01-28T11:00:00Z"}"#,
         )
