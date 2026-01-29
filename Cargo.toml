@@ -8,6 +8,7 @@ default-run = "reservations-rust-microservice"
 argon2 = "0.5.3"
 dotenvy = "0.15.7"
 jsonwebtoken = "9.3.0"
+log = "0.4.29"
 rand_core = "0.6.4"
 rocket = {version = "0.5.1", features = ["json"] }
 serde = "1.0.228"

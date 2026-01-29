@@ -5,6 +5,7 @@ use rocket::State;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use rocket::{get, post, error};
+use log::info;
 
 use crate::utils::*;
 use crate::error_response;
@@ -119,6 +120,7 @@ async fn create_reservation(
 			error_response!(Status::InternalServerError, "failed to check reservation overlap")
         })?;
     if do_overlap {
+		info!("Reservation overlap detected for user_id={}", new_reservation.user_id);
         return Err(error_response!(Status::Conflict, "reservation time overlaps with an existing reservation"));
     }
 	if !new_reservation.is_valid() {
