@@ -24,15 +24,6 @@ struct Reservation {
 }
 
 impl Reservation {
-    fn new(user_id: i64, start_datetime: String, end_datetime: String) -> Self {
-		Reservation {
-			id: None,
-			user_id,
-			start_datetime,
-			end_datetime,
-		}
-	}
-
     async fn there_is_overlap_in_db(&self, db: &State<SqlitePool>) -> Result<bool, Status> {
         let there_is_overlap: bool = sqlx::query_scalar::<_, bool>(
         r#"
