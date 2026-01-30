@@ -11,19 +11,20 @@ async fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .await
         .expect("failed to create in-memory SQLite pool");
 
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations failed");
+
     sqlx::query(
         r#"
-        CREATE TABLE IF NOT EXISTS reservations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            start_datetime TEXT NOT NULL,
-            end_datetime TEXT NOT NULL
-        );
+        INSERT INTO users (username, email, password_hash)
+        VALUES ('testuser', 'test@example.com', 'hashedpassword');
         "#,
     )
     .execute(&pool)
     .await
-    .expect("failed to create reservations table");
+    .expect("failed to create user test instance");
 
     rocket::build().manage(pool).mount("/", reservations::routes())
 }
