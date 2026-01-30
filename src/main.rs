@@ -25,6 +25,11 @@ async fn rocket() -> _ {
             panic!("failed to connect to SQLite");
         });
 
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations failed");
+
     rocket::build()
         .manage(pool)
         .mount("/", users::routes())
