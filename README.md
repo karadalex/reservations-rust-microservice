@@ -10,3 +10,8 @@ cargo update
 cargo run --bin init_db
 cargo run
 ```
+
+to add a new migration:
+```bash
+sqlx migrate add -r migration-name
+```
