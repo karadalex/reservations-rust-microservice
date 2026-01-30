@@ -143,6 +143,17 @@ async fn update_reservation(
 	updated_reservation: Json<Reservation>,
 	auth: AuthUser,
 ) -> ApiResult<Reservation> {
+	let do_overlap = updated_reservation
+		.there_is_overlap_in_db(db)
+		.await
+		.map_err(|_| {
+			error_response!(Status::InternalServerError, "failed to check reservation overlap")
+		})?;
+	if do_overlap {
+		info!("Reservation overlap detected for user_id={}", updated_reservation.user_id);
+		return Err(error_response!(Status::Conflict, "updated reservation time overlaps with an existing reservation"));
+	}
+
 	let reservation = sqlx::query_as::<_, Reservation>(
 		r#"
 		UPDATE reservations
