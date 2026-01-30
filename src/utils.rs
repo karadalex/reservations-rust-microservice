@@ -3,8 +3,8 @@ use rocket::http::Status;
 use rocket::request::{FromRequest, Outcome, Request};
 use rocket::serde::json::Json;
 use serde::{Deserialize, Serialize};
-use core::error;
 use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize)]
 pub struct ErrorBody {
@@ -64,6 +64,10 @@ pub fn issue_jwt(user_id: i64) -> Result<String, ErrorBody> {
         .map_err(|_| ErrorBody {
             message: "failed to sign token".to_string(),
         })
+}
+
+pub fn parse(dt: &str) -> DateTime<Utc> {
+    dt.parse::<DateTime<Utc>>().expect("invalid datetime")
 }
 
 #[rocket::async_trait]

@@ -12,7 +12,7 @@ use crate::error_response;
 
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![get_reservation_by_id, create_reservation, update_reservation]
+    routes![get_reservation_by_id, create_reservation, update_reservation, get_all_reservations]
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -36,19 +36,19 @@ impl Reservation {
                 WHERE user_id = ?
 				AND is_active = 1
                 AND (
-                    (start_datetime < ? AND end_datetime > ?)
-                    OR (start_datetime < ? AND end_datetime < ?)
-                    OR (start_datetime > ? AND end_datetime > ?)
+                    (start_datetime >= ? AND end_datetime <= ?)
+                    OR (start_datetime <= ? AND end_datetime >= ?)
+                    OR (start_datetime <= ? AND end_datetime >= ?)
                 )
             );
             "#,
         )
         .bind(self.user_id)
-        .bind(&self.end_datetime)
-        .bind(&self.start_datetime)
         .bind(&self.start_datetime)
         .bind(&self.end_datetime)
         .bind(&self.start_datetime)
+        .bind(&self.start_datetime)
+        .bind(&self.end_datetime)
         .bind(&self.end_datetime)
         .fetch_one(db.inner())
         .await
@@ -64,16 +64,21 @@ impl Reservation {
     }
 
 	fn there_is_overlap(&self, other: Reservation) -> bool {
-		(self.start_datetime < other.end_datetime &&
-		self.end_datetime > other.start_datetime) || 
-		(self.start_datetime < other.start_datetime &&
-		self.end_datetime < other.end_datetime) || 
-		(self.start_datetime > other.start_datetime &&
-		self.end_datetime > other.end_datetime)
+		let s1 = parse(&self.start_datetime);
+		let s2 = parse(&self.end_datetime);
+		let s3 = parse(&other.start_datetime);
+		let s4 = parse(&other.end_datetime);
+
+		(s1 >= s3 && s2 <= s4) || 
+		(s1 <= s3 && s2 >= s3) || 
+		(s1 <= s4 && s2 >= s4)
 	}
 
 	fn is_valid(&self) -> bool {
-		self.start_datetime < self.end_datetime
+		let s1 = parse(&self.start_datetime);
+		let s2 = parse(&self.end_datetime);
+
+		s1 < s2
 	}
 }
 
@@ -105,6 +110,29 @@ async fn get_reservation_by_id(
         Some(r) => Ok(Json(r)),
         None => Err(error_response!(Status::NotFound, "reservation not found")),
     }
+}
+
+#[get("/reservations")]
+async fn get_all_reservations(
+	db: &State<SqlitePool>,
+	auth: AuthUser,
+) -> ApiResult<Vec<Reservation>> {
+	let reservations = sqlx::query_as::<_, Reservation>(
+		r#"
+		SELECT id, user_id, start_datetime, end_datetime, is_active, created_at, updated_at
+		FROM reservations
+		WHERE user_id = ?
+		"#,
+	)
+	.bind(auth.user_id)
+	.fetch_all(db.inner())
+	.await
+	.map_err(|e| {
+		error!("db error in get_all_reservations(user_id={}): {}", auth.user_id, e);
+		error_response!(Status::InternalServerError, "failed to fetch reservations")
+	})?;
+
+	Ok(Json(reservations))
 }
 
 
